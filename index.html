@@ -47,6 +47,8 @@
     text-shadow: 0 .06em 0 #b4541a, 0 .12em .3em rgba(0,0,0,.5);
   }
   h1 span { color: var(--orange); }
+  .brand { display: flex; align-items: center; gap: 1.2vw; }
+  .mascot { height: calc(var(--head-h) * 0.85); width: auto; filter: drop-shadow(0 .6vh .8vh rgba(0,0,0,.45)); }
   .sub { font-size: calc(var(--head-h) * 0.2); color: var(--muted); letter-spacing: .25em; text-transform: uppercase; }
   /* Prize banner under the header */
   .banner {
@@ -140,7 +142,10 @@
 </head>
 <body>
 <header>
-  <h1>LE<span>A</span>K</h1>
+  <div class="brand">
+    <h1>LE<span>A</span>K</h1>
+    <img class="mascot" src="rabbit.png" alt="">
+  </div>
   <div class="sub">Arcade Top 20</div>
 </header>
 <div class="banner" lang="cs">
