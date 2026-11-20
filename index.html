@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LEAK – Arcade Leaderboard</title>
+<!-- Projector leaderboard for the LEAK Arcade mode. One self-contained file: open it locally or host it anywhere static.
+     Reads the public `leaderboard` view (best score per nick) from Supabase; the anon key below is public by design
+     (RLS only allows insert + select on `scores`). -->
+<style>
+  :root {
+    --bg: #1f1a2e;            /* game panel purple */
+    --bg-deep: #14101f;
+    --row: #2e2647;
+    --row-own: #3b3160;
+    --ink: #fff4e0;
+    --muted: #9d90c4;
+    --accent: #ffbf40;        /* game amber */
+    --orange: #ff8c4d;        /* game orange */
+    --gold: #ffd23f;
+    --silver: #d7dde8;
+    --bronze: #e0985a;
+    --rows: 20;
+    --head-h: 17vh;
+    --row-h: calc((100vh - var(--head-h) - 3vh) / var(--rows));
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: radial-gradient(ellipse at 50% 0%, #3a2d5e 0%, var(--bg) 45%, var(--bg-deep) 100%);
+    color: var(--ink);
+    font-family: "Arial Rounded MT Bold", "Nunito", "Segoe UI", system-ui, sans-serif;
+    font-weight: 800;
+  }
+  header {
+    height: var(--head-h);
+    display: flex; align-items: center; justify-content: center; gap: 2.5vw;
+    padding: 0 4vw;
+    flex-wrap: wrap; overflow: hidden;
+  }
+  h1 {
+    font-size: min(calc(var(--head-h) * 0.5), 18vw);
+    letter-spacing: .06em;
+    color: var(--accent);
+    text-shadow: 0 .06em 0 #b4541a, 0 .12em .3em rgba(0,0,0,.5);
+  }
+  h1 span { color: var(--orange); }
+  .sub { font-size: calc(var(--head-h) * 0.2); color: var(--muted); letter-spacing: .25em; text-transform: uppercase; }
+  #board {
+    position: relative;
+    width: min(94vw, 150vh);
+    height: calc(var(--row-h) * var(--rows));
+    margin: 0 auto;
+  }
+  .row {
+    position: absolute; left: 0; right: 0;
+    top: calc(var(--i) * var(--row-h));
+    height: calc(var(--row-h) * 0.9);
+    display: grid; grid-template-columns: 2.2em 1fr auto; align-items: center; column-gap: .6em;
+    padding: 0 .7em;
+    font-size: calc(var(--row-h) * 0.55);
+    background: var(--row);
+    border-radius: .3em;
+    box-shadow: 0 .08em 0 rgba(0,0,0,.35);
+    transition: top .7s cubic-bezier(.3,1.3,.5,1), opacity .5s, transform .5s, background .6s;
+    font-variant-numeric: tabular-nums;
+  }
+  .rank { text-align: right; color: var(--muted); }
+  .nick { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: .04em; }
+  .score { color: var(--accent); }
+  .row[data-rank="1"] .rank, .row[data-rank="1"] .nick { color: var(--gold); }
+  .row[data-rank="2"] .rank, .row[data-rank="2"] .nick { color: var(--silver); }
+  .row[data-rank="3"] .rank, .row[data-rank="3"] .nick { color: var(--bronze); }
+  .row[data-rank="1"] { background: linear-gradient(90deg, #5a4620, var(--row) 70%); }
+  .row.enter { opacity: 0; transform: translateX(6vw) scale(.97); }
+  .row.leave { opacity: 0; transform: translateX(-6vw); }
+  .row.hot { background: var(--orange); animation: pop 1.6s ease-out; }
+  .row.hot .rank, .row.hot .nick, .row.hot .score { color: #fff; }
+  @keyframes pop {
+    0%   { transform: scale(1); box-shadow: 0 0 0 rgba(255,140,77,0); }
+    20%  { transform: scale(1.05); box-shadow: 0 0 3vh rgba(255,140,77,.9); }
+    100% { transform: scale(1); box-shadow: 0 0 0 rgba(255,140,77,0); }
+  }
+  #status {
+    position: fixed; right: 1.2vw; bottom: 1vh;
+    font-size: 1.6vh; color: var(--muted); letter-spacing: .15em; text-transform: uppercase;
+  }
+  #status::before { content: ""; display: inline-block; width: 1em; height: 1em; border-radius: 50%; margin-right: .5em;
+    vertical-align: -.15em; background: var(--muted); }
+  #status.live::before { background: #5be08a; }
+  #status.poll::before { background: var(--accent); }
+  #status.off::before { background: #ff5d5d; }
+  #empty[hidden] { display: none; }
+  #empty {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: 5vh; color: var(--muted); text-align: center;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>LE<span>A</span>K</h1>
+  <div class="sub">Arcade Top 20</div>
+</header>
+<main id="board"><div id="empty">Loading…</div></main>
+<div id="status" class="off">connecting</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+(() => {
+  // Public by design: same values as data/config.json "leaderboard".
+  const SUPABASE_URL = "https://udgwmbzmdlvpxkrkhnhp.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkZ3dtYnptZGx2cHhrcmtobmhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQzMDY1NjEsImV4cCI6MjEwOTg4MjU2MX0.tW_oPUWIcDXnZ7D2NZIbUNuET2agAkpPB2ugQhQc23I";
+  const TOP = 20;
+  const POLL_LIVE_MS = 30000;   // safety net while realtime works
+  const POLL_FALLBACK_MS = 5000; // when realtime is down
+  const REFETCH_DELAY_MS = 250;  // lets a burst of inserts collapse into one fetch
+  const HOT_MS = 2500;
+  const LEAVE_MS = 600;
+
+  const board = document.getElementById("board");
+  const statusEl = document.getElementById("status");
+  const emptyEl = document.getElementById("empty");
+  const rowsByNick = new Map(); // nick -> {el, score}
+  let first = true;
+  let live = false;
+  let timer = null;
+  let refetchTimer = null;
+
+  function setStatus(kind, text) {
+    statusEl.className = kind;
+    statusEl.textContent = text;
+  }
+
+  function makeRow(nick) {
+    const el = document.createElement("div");
+    el.className = "row enter";
+    for (const cls of ["rank", "nick", "score"]) {
+      const cell = document.createElement("div");
+      cell.className = cls;
+      el.appendChild(cell);
+    }
+    // textContent only: nicks are never parsed as HTML.
+    el.children[1].textContent = nick;
+    board.appendChild(el);
+    return el;
+  }
+
+  function render(rows) {
+    emptyEl.hidden = rows.length > 0;
+    const seen = new Set();
+    rows.forEach((r, i) => {
+      seen.add(r.nick);
+      let entry = rowsByNick.get(r.nick);
+      const isNew = !entry;
+      if (isNew) {
+        entry = { el: makeRow(r.nick), score: r.score };
+        rowsByNick.set(r.nick, entry);
+      }
+      const improved = !isNew && r.score > entry.score;
+      const el = entry.el;
+      el.style.setProperty("--i", i);
+      el.dataset.rank = r.rank;
+      el.children[0].textContent = r.rank;
+      el.children[2].textContent = Number(r.score).toLocaleString("en-US");
+      entry.score = r.score;
+      if (isNew) {
+        // Next frame so the .enter -> normal transition runs.
+        requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove("enter")));
+      }
+      if ((isNew || improved) && !first) hot(el);
+    });
+    for (const [nick, entry] of rowsByNick) {
+      if (seen.has(nick)) continue;
+      rowsByNick.delete(nick);
+      entry.el.classList.add("leave");
+      setTimeout(() => entry.el.remove(), LEAVE_MS);
+    }
+    first = false;
+  }
+
+  function hot(el) {
+    el.classList.remove("hot");
+    void el.offsetWidth; // restart the animation
+    el.classList.add("hot");
+    setTimeout(() => el.classList.remove("hot"), HOT_MS);
+  }
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+
+  async function load() {
+    try {
+      const { data, error } = await sb.from("leaderboard").select("rank,nick,score").order("rank", { ascending: true }).limit(TOP);
+      if (error) throw error;
+      render(data);
+      setStatus(live ? "live" : "poll", live ? "live" : "polling");
+    } catch (e) {
+      console.warn("leaderboard fetch failed", e);
+      setStatus("off", "offline – retrying");
+    }
+  }
+
+  function scheduleLoad() {
+    clearTimeout(refetchTimer);
+    refetchTimer = setTimeout(load, REFETCH_DELAY_MS);
+  }
+
+  function poll() {
+    clearTimeout(timer);
+    timer = setTimeout(async () => { await load(); poll(); }, live ? POLL_LIVE_MS : POLL_FALLBACK_MS);
+  }
+
+  sb.channel("scores-live")
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "scores" }, scheduleLoad)
+    .subscribe((state) => {
+      live = state === "SUBSCRIBED";
+      if (live) load();
+      else setStatus("poll", "polling");
+    });
+
+  load().then(poll);
+})();
+</script>
+</body>
+</html>
