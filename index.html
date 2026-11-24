@@ -22,9 +22,7 @@
     --bronze: #e0985a;
     --rows: 20;
     --head-h: 15vh;
-    --banner-h: 10vh;
-    --banner-gap: 1.6vh;
-    --row-h: calc((100vh - var(--head-h) - var(--banner-h) - var(--banner-gap) - 3vh) / var(--rows));
+    --row-h: calc((100vh - var(--head-h) - 3vh) / var(--rows));
   }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; overflow: hidden; }
@@ -50,39 +48,7 @@
   .brand { display: flex; align-items: center; gap: 1.2vw; }
   .mascot { height: calc(var(--head-h) * 0.85); width: auto; filter: drop-shadow(0 .6vh .8vh rgba(0,0,0,.45)); }
   .sub { font-size: calc(var(--head-h) * 0.2); color: var(--muted); letter-spacing: .25em; text-transform: uppercase; }
-  /* Prize banner under the header */
-  .banner {
-    position: relative; overflow: hidden;
-    width: min(94vw, 150vh); height: var(--banner-h); margin: 0 auto var(--banner-gap);
-    display: flex; align-items: center; gap: 2vh; padding: 0 2.4vh;
-    border-radius: 2vh;
-    background: linear-gradient(100deg, var(--accent), var(--orange));
-    color: #2a1700;
-    box-shadow: 0 .6vh 0 #b4541a, 0 0 4vh rgba(255,140,77,.4);
-  }
-  .banner::after { /* moving shine */
-    content: ""; position: absolute; top: 0; bottom: 0; width: 18%; left: -30%;
-    background: linear-gradient(100deg, transparent, rgba(255,255,255,.45), transparent);
-    transform: skewX(-20deg); animation: shine 5s ease-in-out infinite;
-  }
-  @keyframes shine { 0%, 55% { left: -30%; } 100% { left: 130%; } }
-  .banner .key { height: 6.6vh; width: auto; flex: none; transform-origin: 30% 50%; animation: wiggle 2.6s ease-in-out infinite; }
-  @keyframes wiggle { 0%, 60%, 100% { transform: rotate(0); } 70% { transform: rotate(-14deg); } 80% { transform: rotate(10deg); } 90% { transform: rotate(-6deg); } }
-  .banner .txt { display: flex; flex-direction: column; gap: .5vh; min-width: 0; }
-  .banner .big { font-size: 3.4vh; line-height: 1.1; }
-  .banner .big b { color: #fff; text-shadow: 0 .25vh 0 #b4541a; }
-  .banner .steam { /* Steam colours: dark navy chip, light blue text */
-    display: inline-block; padding: 0 .4em; border-radius: .25em; letter-spacing: .04em;
-    background: linear-gradient(180deg, #1b2838, #171a21); color: #66c0f4; text-shadow: none;
-    box-shadow: inset 0 0 0 .25vh #2a475e;
-  }
-  .banner .small { font-size: 2.2vh; line-height: 1.2; display: flex; align-items: center; flex-wrap: wrap; gap: .8vh; }
-  .banner .handle {
-    display: inline-flex; align-items: center; gap: .6vh;
-    background: #2a1700; color: var(--accent); border-radius: 99px; padding: .3vh 1.4vh;
-  }
-  .banner .handle svg { height: 2.2vh; width: 2.2vh; }
-  #cut { /* dashed line under the prize places */
+  #cut { /* dashed line under the top 3 */
     position: absolute; left: 0; right: 0; top: calc(var(--row-h) * 2.95); height: 0;
     border-top: .4vh dashed var(--accent); opacity: .8; pointer-events: none;
   }
@@ -148,18 +114,6 @@
   </div>
   <div class="sub">Arcade Top 20</div>
 </header>
-<div class="banner" lang="cs">
-  <svg class="key" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true">
-    <path fill-rule="evenodd" d="M20 19a13 13 0 1 0 0 26a13 13 0 1 0 0-26zm0 8a5 5 0 1 1 0 10a5 5 0 1 1 0-10z"/>
-    <rect x="31" y="29" width="31" height="6" rx="2"/><rect x="47" y="35" width="5" height="10" rx="1.5"/><rect x="56" y="35" width="5" height="8" rx="1.5"/>
-  </svg>
-  <div class="txt">
-    <div class="big"><b>První 3</b> od nás při releasu hry dostanou <span class="steam">STEAM</span> <b>klíč</b></div>
-    <div class="small">Nutnost sledovat
-      <span class="handle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>@tuerinhemroid</span>
-      na Instagramu</div>
-  </div>
-</div>
 <main id="board"><div id="cut" hidden></div><div id="empty">Loading…</div></main>
 <div id="status" class="off">connecting</div>
 
